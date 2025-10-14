@@ -13,7 +13,6 @@ namespace DynamicsEstudo
         {
             var serviceProvider = localContext.ServiceProvider;
             // contexto para pegar parametros e tracing para a desgraça do log (catch e tlz)
-
             var context = (IPluginExecutionContext)serviceProvider.GetService(typeof(IPluginExecutionContext));
             var tracing = (ITracingService)serviceProvider.GetService(typeof(ITracingService));
 
@@ -27,25 +26,23 @@ namespace DynamicsEstudo
             // Guarda a tabela de mercadoria que gatilhou o plugin
             Entity targetEntity = context.InputParameters["Target"] as Entity;
 
-            // valide se é mercadoria e se é nulo 
-            if (targetEntity == null || targetEntity.LogicalName != "vi_mercadoria")
-                return;
-
             try
             {
                 // Pega a nota fiscal vinculada a mercadoria (pai)
                 EntityReference notaFiscalRef = null;
 
-                if (context.MessageName == "Delete")
+                if (context.MessageName.Equals("Delete", StringComparison.OrdinalIgnoreCase))
                 {
                     if (!context.PreEntityImages.Contains("PreImage"))
                         return;
 
                     // Pega a entidade antes da exclusão
                     targetEntity = context.PreEntityImages["PreImage"];
+                    tracing.Trace($"Target {targetEntity}");
 
                     // Pega a nota fiscal vinculada
                     notaFiscalRef = targetEntity.GetAttributeValue<EntityReference>("vi_notafiscal");
+                    tracing.Trace($"Nota {notaFiscalRef.Name}");
                 }
                 else
                 {
@@ -61,6 +58,7 @@ namespace DynamicsEstudo
                 // Se não tiver nota fiscal vinculada, sai fora
                 if (notaFiscalRef == null)
                     return;
+                tracing.Trace($"Target {targetEntity}");
 
                 // Recupera a nota fiscal para obter o estado
                 var notaFiscal = service.Retrieve("vi_notafiscal", notaFiscalRef.Id, new ColumnSet("vi_estado"));
@@ -94,6 +92,7 @@ namespace DynamicsEstudo
 
                 // Executa a consulta e pega as entidades
                 var mercadorias = service.RetrieveMultiple(query).Entities;
+                tracing.Trace($"Numero de mercadorias {mercadorias.Count}");
 
                 decimal totalICMS = 0m;
 
