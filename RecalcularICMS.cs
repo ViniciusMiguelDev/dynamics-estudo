@@ -9,9 +9,11 @@ namespace DynamicsEstudo
     {
         public RecalcularICMS(string unsecure, string secure) : base(typeof(RecalcularICMS)) { }
 
-        protected override void ExecuteDataversePlugin(IServiceProvider serviceProvider)
+        protected override void ExecuteDataversePlugin(ILocalPluginContext localContext)
         {
+            var serviceProvider = localContext.ServiceProvider;
             // contexto para pegar parametros e tracing para a desgraça do log (catch e tlz)
+
             var context = (IPluginExecutionContext)serviceProvider.GetService(typeof(IPluginExecutionContext));
             var tracing = (ITracingService)serviceProvider.GetService(typeof(ITracingService));
 
