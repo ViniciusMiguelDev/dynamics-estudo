@@ -11,14 +11,14 @@ namespace DynamicsEstudo
 
         protected override void ExecuteDataversePlugin(IServiceProvider serviceProvider)
         {
-            // contexto para pegar parametros e tracing para log pourra (catch e tlz)
+            // contexto para pegar parametros e tracing para a desgraça do log (catch e tlz)
             var context = (IPluginExecutionContext)serviceProvider.GetService(typeof(IPluginExecutionContext));
             var tracing = (ITracingService)serviceProvider.GetService(typeof(ITracingService));
 
             if (!context.InputParameters.Contains("Target"))
                 return;
 
-            // Cria a porra do service
+            // Cria a porra dos services
             var serviceFactory = (IOrganizationServiceFactory)serviceProvider.GetService(typeof(IOrganizationServiceFactory));
             var service = serviceFactory.CreateOrganizationService(context.UserId);
 
@@ -60,7 +60,7 @@ namespace DynamicsEstudo
                 var notaFiscal = service.Retrieve("vi_notafiscal", notaFiscalRef.Id, new ColumnSet("vi_estado"));
                 int estadoValor = notaFiscal.Contains("vi_estado") ? notaFiscal.GetAttributeValue<int>("vi_estado") : 0;
 
-                // Mapeamento dos estados e alíquotas (copiado do JS)
+                // Mapeamento dos estados e alíquotas
                 var estadoMap = new Dictionary<int, string>
                 {
                     { 1, "SP" }, { 2, "RJ" }, { 3, "MG" }, { 4, "ES" },
@@ -100,12 +100,10 @@ namespace DynamicsEstudo
                     // Pega o preço (Money) e converte para decimal
                     var precoMoney = m.GetAttributeValue<Money>("vi_preco");
                     if (precoMoney != null) preco = (decimal)precoMoney.Value;
-
-                    if (m.Contains("vi_quantidade"))
-                    {
-                        var val = m["vi_quantidade"];
-                        qtd = (int)val;
-                    }
+                        
+                    var val = m.GetAttributeValue<int>("vi_quantidade");
+                    if (val != null) qtd = (int)val;
+                  
 
                     // Acumula o ICMS
                     totalICMS += preco * qtd * aliquota;
@@ -115,7 +113,7 @@ namespace DynamicsEstudo
                 var nota = new Entity("vi_notafiscal", notaFiscalRef.Id);
 
                 // Arredonda para 2 casas decimais
-                nota["vi_icms_total"] = new Money(totalICMS);
+                nota["ava_icmstotal"] = new Money(totalICMS);
 
                 // Atualiza a nota fiscal no Dataverse
                 service.Update(nota);
