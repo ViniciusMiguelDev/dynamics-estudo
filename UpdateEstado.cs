@@ -2,12 +2,13 @@
 using Microsoft.Xrm.Sdk.Query;
 using System;
 using System.Collections.Generic;
+using System.Text.RegularExpressions;
 
-namespace DynamicsEstudo
+  namespace DynamicsEstudo
 {
-    public class RecalcularICMS : PluginBase
+    public class UpdateEstado : PluginBase
     {
-        public RecalcularICMS(string unsecure, string secure) : base(typeof(RecalcularICMS)) { }
+        public UpdateEstado (string unsecure, string secure) : base(typeof(UpdateEstado)) { }
 
         protected override void ExecuteDataversePlugin(ILocalPluginContext localContext)
         {
@@ -17,6 +18,10 @@ namespace DynamicsEstudo
             var context = (IPluginExecutionContext)serviceProvider.GetService(typeof(IPluginExecutionContext));
             var tracing = (ITracingService)serviceProvider.GetService(typeof(ITracingService));
 
+            // Evitar o puto do loop
+            if (context.Depth > 1)
+                return;
+
             if (!context.InputParameters.Contains("Target"))
                 return;
 
@@ -24,47 +29,37 @@ namespace DynamicsEstudo
             var serviceFactory = (IOrganizationServiceFactory)serviceProvider.GetService(typeof(IOrganizationServiceFactory));
             var service = serviceFactory.CreateOrganizationService(context.UserId);
 
-            // Guarda a tabela de mercadoria que gatilhou o plugin
+            // Guarda a tabela de notaFiscal que gatilhou o plugin
             Entity targetEntity = context.InputParameters["Target"] as Entity;
 
-            // valide se é mercadoria e se é nulo 
-            if (targetEntity == null || targetEntity.LogicalName != "vi_mercadoria")
+            // valide se é notaFisal e se é nulo 
+            if (targetEntity == null || targetEntity.LogicalName != "vi_notafiscal")
                 return;
 
             try
             {
-                // Pega a nota fiscal vinculada a mercadoria (pai)
-                EntityReference notaFiscalRef = null;
 
-                if (context.MessageName == "Delete")
-                {
-                    if (!context.PreEntityImages.Contains("PreImage"))
-                        return;
+                // Valida o CNPJ
+                string cnpj = null;
+                if (targetEntity.Attributes.Contains("vi_cnpj"))
+                    cnpj = targetEntity.GetAttributeValue<string>("vi_cnpj");
+                else if (context.PreEntityImages.Contains("PreImage"))
+                    cnpj = context.PreEntityImages["PreImage"].GetAttributeValue<string>("vi_cnpj");
 
-                    // Pega a entidade antes da exclusão
-                    targetEntity = context.PreEntityImages["PreImage"];
+                if (string.IsNullOrWhiteSpace(cnpj) || !IsCnpjValid(cnpj))
+                    throw new InvalidPluginExecutionException("CNPJ inválido na nota fiscal.");
 
-                    // Pega a nota fiscal vinculada
-                    notaFiscalRef = targetEntity.GetAttributeValue<EntityReference>("vi_notafiscal");
-                }
-                else
-                {
-                    // No create/update pega direto da entidade alvo
-                    if (targetEntity.Attributes.Contains("vi_notafiscal"))
-                        notaFiscalRef = targetEntity.GetAttributeValue<EntityReference>("vi_notafiscal");
 
-                    // se não tiver na entidade alvo, tenta pegar na preimage
-                    else if (context.PreEntityImages.Contains("PreImage"))
-                        notaFiscalRef = context.PreEntityImages["PreImage"].GetAttributeValue<EntityReference>("vi_notafiscal");
-                }
+                // Pega o estado da nota fiscal
+                OptionSetValue estadoValor = null;
 
-                // Se não tiver nota fiscal vinculada, sai fora
-                if (notaFiscalRef == null)
+                if (targetEntity.Attributes.Contains("vi_estado"))
+                    estadoValor = targetEntity.GetAttributeValue<OptionSetValue>("vi_estado");
+                else if (context.PreEntityImages.Contains("PreImage"))
+                    estadoValor = context.PreEntityImages["PreImage"].GetAttributeValue<OptionSetValue>("vi_estado");
+
+                if (estadoValor == null)
                     return;
-
-                // Recupera a nota fiscal para obter o estado
-                var notaFiscal = service.Retrieve("vi_notafiscal", notaFiscalRef.Id, new ColumnSet("vi_estado"));
-                OptionSetValue estadoValor = notaFiscal.GetAttributeValue<OptionSetValue>("vi_estado");
 
                 // Mapeamento dos estados e alíquotas
                 var estadoMap = new Dictionary<int, string>
@@ -86,11 +81,10 @@ namespace DynamicsEstudo
                 // Consulta mercadorias vinculadas
                 var query = new QueryExpression("vi_mercadoria")
                 {
-                    // Consulta apenas preço e quantidade 
                     ColumnSet = new ColumnSet("vi_preco", "vi_quantidade"),
-                    // Filtro para pegar apenas as mercadorias da nota fiscal atual
-                    Criteria = { Conditions = { new ConditionExpression("vi_notafiscal", ConditionOperator.Equal, notaFiscalRef.Id) } }
+                    Criteria = { Conditions = { new ConditionExpression("vi_notafiscal", ConditionOperator.Equal, targetEntity.Id) } }
                 };
+
 
                 // Executa a consulta e pega as entidades
                 var mercadorias = service.RetrieveMultiple(query).Entities;
@@ -111,14 +105,14 @@ namespace DynamicsEstudo
                     totalICMS += preco * qtd * aliquota;
                 }
 
-                // Atualiza nota fiscal com o total de ICMS calculado e pa
-                var nota = new Entity("vi_notafiscal", notaFiscalRef.Id);
+                // Evita atualizar se o valor é o mesmo
+                var currentICMS = targetEntity.GetAttributeValue<Money>("ava_icmstotal")?.Value ?? 0m;
+                if (currentICMS != totalICMS)
+                {
+                    targetEntity["ava_icmstotal"] = new Money(totalICMS);
+                    service.Update(targetEntity);
+                }
 
-                // Arredonda para 2 casas decimais
-                nota["ava_icmstotal"] = new Money(totalICMS);
-
-                // Atualiza a nota fiscal no Dataverse
-                service.Update(nota);
             }
 
             // Loga qualquer exceção que ocorrer
@@ -128,5 +122,38 @@ namespace DynamicsEstudo
                 throw new InvalidPluginExecutionException(ex.Message);
             }
         }
+        private bool IsCnpjValid(string cnpj)
+        {
+            if (new string(cnpj[0], 14) == cnpj)
+                return false;
+
+            int[] multiplicador1 = new int[12] { 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2 };
+            int[] multiplicador2 = new int[13] { 6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2 };
+            string tempCnpj = cnpj.Substring(0, 12);
+            int soma = 0;
+
+            for (int i = 0; i < 12; i++)
+                soma += int.Parse(tempCnpj[i].ToString()) * multiplicador1[i];
+
+            int resto = (soma % 11);
+            if (resto < 2) resto = 0;
+            else resto = 11 - resto;
+
+            string digito = resto.ToString();
+            tempCnpj += digito;
+            soma = 0;
+
+            for (int i = 0; i < 13; i++)
+                soma += int.Parse(tempCnpj[i].ToString()) * multiplicador2[i];
+
+            resto = (soma % 11);
+            if (resto < 2) resto = 0;
+            else resto = 11 - resto;
+
+            digito += resto.ToString();
+
+            return cnpj.EndsWith(digito);
+        }
     }
+    
 }
