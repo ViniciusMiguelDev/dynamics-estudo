@@ -1,14 +1,21 @@
 ﻿using Microsoft.Xrm.Sdk;
-using Microsoft.Xrm.Sdk.Query;
 using System;
-using System.Collections.Generic;
-using System.Text.RegularExpressions;
 
-  namespace DynamicsEstudo
+namespace DynamicsEstudo
 {
     public class NotaFiscalPlugin : PluginBase
     {
-        public NotaFiscalPlugin(string unsecure, string secure) : base(typeof(NotaFiscalPlugin)) { }
+        private readonly NotaFiscalService _notaFiscalService;
+
+        public NotaFiscalPlugin() : base(typeof(NotaFiscalPlugin))
+        {
+            _notaFiscalService = new NotaFiscalService(
+                new Repository(),
+                new EstadoAliquotaMap(),
+                new CalcularICMS(),
+                new CnpjValidator()
+            );
+        }
 
         protected override void ExecuteDataversePlugin(ILocalPluginContext localContext)
         {
@@ -22,52 +29,20 @@ using System.Text.RegularExpressions;
             var serviceFactory = (IOrganizationServiceFactory)serviceProvider.GetService(typeof(IOrganizationServiceFactory));
             var service = serviceFactory.CreateOrganizationService(context.UserId);
 
-            //Instanciar os repositórios
-            var Rep = new Repository();
-
-            //Instanciar o servico
-            var NotaFiscalServ = new NotaFiscalService();
-
-            // Util
-            var aliquotaUtil = new EstadoAliquotaMap();
-            var calcularICMS = new CalcularICMS();
-
-            // Instanciar o validador de CNPJ
-            var cnpjValidator = new CnpjValidator();
-
-            // Evitar o puto do loop
-            if (context.Depth > 1)
-                return;
-
-            if (!context.InputParameters.Contains("Target"))
-                return;
-
-            // Guarda a tabela de notaFiscal que gatilhou o plugin
-            Entity targetEntity = context.InputParameters["Target"] as Entity;
-            EntityReference notaFiscalRef = new EntityReference(targetEntity.LogicalName, targetEntity.Id);
-
             try
             {
-                // Valida o CNPJ
-                cnpjValidator.ValidarCnpj(targetEntity, context);
+                // Evita loop infinito de atualização
+                if (context.Depth > 1)
+                    return;
 
-                var mercadorias = Rep.getMercadorias(notaFiscalRef, service);
-
-                decimal aliquota = aliquotaUtil.GetAliquota(targetEntity);
-
-                decimal totalICMS = calcularICMS.CalcularICMSTotal(mercadorias, aliquota);
-
-                NotaFiscalServ.validAndUpdate(targetEntity, totalICMS, service);
+                // Chama o service que orquestra tudo
+                _notaFiscalService.ProcessarNotaFiscal(context, service);
             }
-
-            // Loga qualquer exceção que ocorrer
             catch (Exception ex)
             {
-                tracing.Trace("RecalcularICMS Exception: " + ex.ToString());
+                tracing.Trace($"[NotaFiscalPlugin] Erro: {ex}");
                 throw new InvalidPluginExecutionException(ex.Message);
             }
         }
-        
     }
-    
 }

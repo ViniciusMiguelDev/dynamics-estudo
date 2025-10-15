@@ -2,10 +2,10 @@
 using Microsoft.Xrm.Sdk.Query;
 using System;
 
-public class Repository
+public class Repository : IRepository
 {
-	public DataCollection<Entity> getMercadorias(EntityReference notaFiscalRef, IOrganizationService service)
-	{
+    public DataCollection<Entity> GetMercadorias(EntityReference notaFiscalRef, IOrganizationService service)
+    {
         // Consulta mercadorias vinculadas
         var query = new QueryExpression("vi_mercadoria")
         {
@@ -21,7 +21,7 @@ public class Repository
         return mercadorias;
     }
 
-    public Entity getNotaFiscal (EntityReference notaFiscalRef, IOrganizationService service)
+    public Entity GetNotaFiscal(EntityReference notaFiscalRef, IOrganizationService service)
     {
         var nota = service.Retrieve("vi_notafiscal", notaFiscalRef.Id, new ColumnSet("vi_estado"));
         if (nota == null) throw new InvalidPluginExecutionException("Nota Fiscal não encontrada.");
