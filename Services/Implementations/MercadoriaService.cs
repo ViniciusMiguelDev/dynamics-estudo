@@ -62,7 +62,7 @@ public class MercadoriaService : IMercadoriaService
         return (targetEntity, notaFiscalRef);
     }
 
-    private void AtualizarICMS(EntityReference notaFiscalRef, decimal totalICMS, IOrganizationService service)
+    public void AtualizarICMS(EntityReference notaFiscalRef, decimal totalICMS, IOrganizationService service)
     {
         var nota = new Entity("vi_notafiscal", notaFiscalRef.Id)
         {
@@ -70,10 +70,5 @@ public class MercadoriaService : IMercadoriaService
         };
 
         service.Update(nota);
-    }
-
-    void IMercadoriaService.AtualizarICMS(EntityReference notaFiscalRef, decimal totalICMS, IOrganizationService service)
-    {
-        AtualizarICMS(notaFiscalRef, totalICMS, service);
     }
 }
