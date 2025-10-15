@@ -9,7 +9,6 @@ namespace DynamicsEstudo
 
         public MercadoriaPlugin() : base(typeof(MercadoriaPlugin))
         {
-            // Injeção manual das dependências
             _mercadoriaService = new MercadoriaService(
                 new Repository(),
                 new EstadoAliquotaMap(),
