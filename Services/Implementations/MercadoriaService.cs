@@ -4,14 +4,10 @@ using System;
 public class MercadoriaService : IMercadoriaService
 {
     private readonly Repository _repository;
-    private readonly EstadoAliquotaMap _aliquotaUtil;
-    private readonly CalcularICMS _calcularICMS;
 
-    public MercadoriaService(Repository repository, EstadoAliquotaMap aliquotaUtil, CalcularICMS calcularICMS)
+    public MercadoriaService(Repository repository)
     {
         _repository = repository;
-        _aliquotaUtil = aliquotaUtil;
-        _calcularICMS = calcularICMS;
     }
 
     public void ProcessarICMS(IPluginExecutionContext context, IOrganizationService service)
@@ -30,8 +26,8 @@ public class MercadoriaService : IMercadoriaService
         var mercadorias = _repository.GetMercadorias(notaFiscalRef, service);
 
         // Calcula a alíquota e o ICMS total
-        decimal aliquota = _aliquotaUtil.GetAliquota(notaFiscal);
-        decimal totalICMS = _calcularICMS.CalcularICMSTotal(mercadorias, aliquota);
+        decimal aliquota = EstadoAliquotaMap.GetAliquota(notaFiscal);
+        decimal totalICMS = CalcularICMS.CalcularICMSTotal(mercadorias, aliquota);
 
         // Atualiza a nota fiscal com o valor calculado
         AtualizarICMS(notaFiscalRef, totalICMS, service);
@@ -39,9 +35,7 @@ public class MercadoriaService : IMercadoriaService
 
     public (Entity, EntityReference) ValidarContextoTrigger(IPluginExecutionContext context)
     {
-        if (!context.InputParameters.Contains("Target") || !(context.InputParameters["Target"] is Entity targetEntity))
-            throw new InvalidPluginExecutionException("Target inválido no contexto.");
-
+        Entity targetEntity = context.InputParameters["Target"] as Entity;
         EntityReference notaFiscalRef = null;
 
         // Caso de DELETE

@@ -2,9 +2,9 @@
 using System;
 using System.Collections.Generic;
 
-public class EstadoAliquotaMap
+public static class EstadoAliquotaMap
 {
-	public decimal GetAliquota(Entity notaFiscal)
+	public static decimal GetAliquota(Entity notaFiscal)
 	{
         // valide se é notaFisal e se é nulo 
         if (notaFiscal == null || notaFiscal.LogicalName != "vi_notafiscal")

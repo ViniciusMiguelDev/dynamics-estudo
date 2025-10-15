@@ -1,9 +1,9 @@
 ﻿using Microsoft.Xrm.Sdk;
 using System;
 
-public class CalcularICMS
+public static class CalcularICMS
 {
-	public decimal CalcularICMSTotal(DataCollection<Entity> mercadorias, decimal aliquota)
+	public static decimal CalcularICMSTotal(DataCollection<Entity> mercadorias, decimal aliquota)
 	{
         decimal totalICMS = 0m;
 

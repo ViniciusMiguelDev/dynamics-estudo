@@ -10,9 +10,7 @@ namespace DynamicsEstudo
         public MercadoriaPlugin() : base(typeof(MercadoriaPlugin))
         {
             _mercadoriaService = new MercadoriaService(
-                new Repository(),
-                new EstadoAliquotaMap(),
-                new CalcularICMS()
+                new Repository()
             );
         }
 

@@ -10,10 +10,7 @@ namespace DynamicsEstudo
         public NotaFiscalPlugin() : base(typeof(NotaFiscalPlugin))
         {
             _notaFiscalService = new NotaFiscalService(
-                new Repository(),
-                new EstadoAliquotaMap(),
-                new CalcularICMS(),
-                new CnpjValidator()
+                new Repository()
             );
         }
 

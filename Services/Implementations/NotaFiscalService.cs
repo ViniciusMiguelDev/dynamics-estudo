@@ -5,16 +5,10 @@ using System;
 public class NotaFiscalService : INotaFiscalService
 {
     private readonly Repository _repository;
-    private readonly EstadoAliquotaMap _aliquotaUtil;
-    private readonly CalcularICMS _calcularICMS;
-    private readonly CnpjValidator _cnpjValidator;
 
-    public NotaFiscalService(Repository repository, EstadoAliquotaMap aliquotaUtil, CalcularICMS calcularICMS, CnpjValidator cnpjValidator)
+    public NotaFiscalService(Repository repository)
     {
         _repository = repository;
-        _aliquotaUtil = aliquotaUtil;
-        _calcularICMS = calcularICMS;
-        _cnpjValidator = cnpjValidator;
     }
 
     public void ProcessarNotaFiscal(IPluginExecutionContext context, IOrganizationService service)
@@ -24,12 +18,12 @@ public class NotaFiscalService : INotaFiscalService
 
         EntityReference notaFiscalRef = new EntityReference(targetEntity.LogicalName, targetEntity.Id);
 
-        _cnpjValidator.ValidarCnpj(targetEntity, context);
+        CnpjValidator.ValidarCnpj(targetEntity, context);
 
         var mercadorias = _repository.GetMercadorias(notaFiscalRef, service);
 
-        decimal aliquota = _aliquotaUtil.GetAliquota(targetEntity);
-        decimal totalICMS = _calcularICMS.CalcularICMSTotal(mercadorias, aliquota);
+        decimal aliquota = EstadoAliquotaMap.GetAliquota(targetEntity);
+        decimal totalICMS = CalcularICMS.CalcularICMSTotal(mercadorias, aliquota);
 
         AtualizarICMSSeNecessario(targetEntity, totalICMS, service);
     }

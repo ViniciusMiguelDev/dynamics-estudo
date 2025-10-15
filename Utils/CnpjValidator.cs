@@ -2,9 +2,9 @@
 using System;
 using System.Runtime.Remoting.Contexts;
 
-public class CnpjValidator
+public static class CnpjValidator
 {
-	public void ValidarCnpj(Entity targetEntity, IPluginExecutionContext context)
+	public static void ValidarCnpj(Entity targetEntity, IPluginExecutionContext context)
 	{
         // valide se é notaFisal e se é nulo 
         if (targetEntity == null || targetEntity.LogicalName != "vi_notafiscal")
@@ -21,7 +21,7 @@ public class CnpjValidator
             throw new InvalidPluginExecutionException("CNPJ inválido na nota fiscal.");
     }
 
-    private bool IsCnpjValid(string cnpj)
+    private static bool IsCnpjValid(string cnpj)
     {
         if (new string(cnpj[0], 14) == cnpj)
             return false;
